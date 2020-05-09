@@ -1,31 +1,71 @@
-package blockchain;
+package blockchain.chain;
 
-import java.util.Date;
+import blockchain.chain.exceptions.OutOfDoubleLinkedList;
+import blockchain.chain.serial.SerialUnit;
 
-public class Blockchain {
+import java.io.IOException;
+import java.io.Serializable;
+
+public class Blockchain implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final String serialFileName;
+
     private DoubleLinkedList chain;
     private long id;
+    private int zerosNum;
 
-    public Blockchain() {
+    public Blockchain(String serialFileName) {
         this.chain = new DoubleLinkedList();
         this.id = 1;
+        zerosNum = 0;
+        this.serialFileName = serialFileName;
+    }
+
+    public Blockchain(int zerosNum, String serialFileName) {
+        this(serialFileName);
+        this.zerosNum = zerosNum;
     }
 
     public void generateBlock() {
          Block.Builder builder = new Block.Builder().id(id);
 
-         if (id == 1) {
-             builder.prevHash("0");
-         } else {
-             try {
-                 builder.prevHash(chain.getTail().block.getCurHash());
-             } catch (OutOfDoubleLinkedList e) {
-                 System.out.println(e);
-                 System.exit(1);
-             }
-         }
-         id++;
+         builder.prevHash(getPrevHash());
+         builder.zerosNum(zerosNum);
+
          chain.add(builder.build());
+         blockIncrement();
+
+         try {
+             SerialUnit.serialize(this, serialFileName);
+         } catch (IOException e) {
+             System.out.println(e);
+             System.exit(1);
+         }
+
+    }
+
+    public void generateBlocks(int n) {
+        for (int i = 0; i < n; i++) {
+            this.generateBlock();
+        }
+    }
+
+    private void blockIncrement() {
+        id++;
+    }
+
+    private String getPrevHash() {
+        if (id == 1) {
+            return "0";
+        } else {
+            try {
+                return chain.getTail().block.getCurHash();
+            } catch (OutOfDoubleLinkedList e) {
+                System.out.println(e);
+                System.exit(1);
+            }
+        }
+        return null;
     }
 
     public boolean checkChain() {
@@ -45,6 +85,10 @@ public class Blockchain {
         return true;
     }
 
+    public long size() {
+        return this.id;
+    }
+
     public void printChain(int to) {
         int i = 0;
         try {
@@ -61,7 +105,7 @@ public class Blockchain {
         }
     }
 
-    private class DoubleLinked {
+    private class DoubleLinked implements Serializable {
         protected Block block;
         protected DoubleLinked prev;
         protected DoubleLinked next;
@@ -71,7 +115,7 @@ public class Blockchain {
         }
     }
 
-    private class DoubleLinkedList {
+    private class DoubleLinkedList implements Serializable {
         private DoubleLinked head;
         private DoubleLinked tail;
 
@@ -111,83 +155,5 @@ public class Blockchain {
             }
             return tail.prev;
         }
-    }
-}
-
-class OutOfDoubleLinkedList extends Exception {
-    public OutOfDoubleLinkedList(String message) {
-        super(message);
-    }
-}
-
-class Block {
-    private final long id;
-    private final long timeStamp;
-    private final String prevHash;
-    private final String curHash;
-
-    private Block(long id, long timeStamp, String prevHash, String curHash) {
-        this.id = id;
-        this.timeStamp = timeStamp;
-        this.prevHash = prevHash;
-        this.curHash = curHash;
-    }
-
-    public static class Builder {
-        private long id;
-        private long timeStamp;
-        private String prevHash;
-        private String curHash;
-
-        public Builder id(long id) {
-            this.id = id;
-            return this;
-        }
-
-        public Builder prevHash(String prevHash) {
-            this.prevHash = prevHash;
-            return this;
-        }
-
-        public Block build() {
-            timeStamp = getTimeStamp();
-            curHash = getHash();
-            return new Block(id, timeStamp, prevHash, curHash);
-        }
-
-        private long getTimeStamp() {
-            return new Date().getTime();
-        }
-
-        private String getHash() {
-            StringBuilder hash = new StringBuilder();
-            hash.append(id).append(timeStamp).append(prevHash);
-            return StringUtil.applySha256(hash.toString());
-        }
-    }
-
-    public long getId() {
-        return this.id;
-    }
-
-    public long getTimeStamp() {
-        return this.timeStamp;
-    }
-
-    public String getPrevHash() {
-        return this.prevHash;
-    }
-
-    public String getCurHash() {
-        return this.curHash;
-    }
-
-    @Override
-    public String toString() {
-        return "Block:" + "\n"
-                + "Id: " + getId() + "\n"
-                + "Timestamp: " + getTimeStamp() + "\n"
-                + "Hash of the previous block:" + "\n" + getPrevHash() + "\n"
-                + "Hash of the block:" + "\n" + getCurHash();
     }
 }

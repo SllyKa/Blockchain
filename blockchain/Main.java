@@ -1,48 +1,41 @@
 package blockchain;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Scanner;
+import java.util.concurrent.*;
 import blockchain.chain.Blockchain;
-import blockchain.chain.serial.SerialUnit;
+import blockchain.chain.MultiThreadChain;
+
+/* do not forget to delete serialize file if u need it */
 
 public class Main {
     public static void main(String[] args) {
 
-        Scanner scan = new Scanner(System.in);
-
-        Blockchain blockChain;
+        ExecutorService executor = Executors.newFixedThreadPool(12);
 
         String serialFileName = "chain01.bc";
-        File serialFile = new File(serialFileName);
-        boolean isNewFile = false;
+
+        Blockchain blockChain = Blockchain.initBlockchain(serialFileName);
+
+        for (int i = 0; i < 6; i++) {
+            executor.submit(new MultiThreadChain(i, blockChain));
+        }
+
+        executor.shutdown();
 
         try {
-            isNewFile = serialFile.createNewFile();
-        } catch (IOException e) {
+            executor.awaitTermination(10000, TimeUnit.MILLISECONDS);
+
+/*            if (executor.awaitTermination(10000, TimeUnit.MILLISECONDS)) {
+                System.out.println("Exec");
+            } else {
+                System.out.println("Don't exec");
+            }*/
+        } catch (InterruptedException e) {
             System.out.println(e);
             return;
         }
 
-        if (!isNewFile) {
-            try {
-                blockChain = (Blockchain) SerialUnit.deserialize(serialFileName);
-                if (!blockChain.checkChain()) {
-                    System.out.println("Chain is invalid.");
-                    return;
-                }
-            } catch (IOException | ClassNotFoundException e) {
-                System.out.println(e);
-                return;
-            }
-        } else {
-            System.out.println("Enter how many zeros the hash must starts with: ");
-            int zerosNum = Integer.parseInt(scan.nextLine());
+        //blockChain.generateBlocks(7);
 
-            blockChain = new Blockchain(zerosNum, serialFileName);
-        }
-
-        blockChain.generateBlocks(7);
         blockChain.printChain(5);
     }
 }
